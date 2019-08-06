@@ -1,4 +1,5 @@
 import * as D3HierarchyDemo from "./d3-hierarchy-demo";
+import * as D3ForceDirectedGraph from "./force-directed-graph";
 
 interface Demo {
   Name: string;
@@ -6,4 +7,4 @@ interface Demo {
   Component: React.FC<{}>
 }
 
-export const demos: Demo[] = [D3HierarchyDemo];
+export const demos: Demo[] = [D3HierarchyDemo, D3ForceDirectedGraph];
