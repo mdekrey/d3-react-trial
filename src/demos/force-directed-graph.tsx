@@ -13,28 +13,41 @@ const useForceUpdate = () => {
     return setIt as () => void;
 };
 
-const drag = (simulation: d3.Simulation<DataNode, undefined>) => {
-    function dragstarted(d: DataNode) {
-      if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x;
-      d.fy = d.y;
+const getSvgCoords = (e: React.MouseEvent<SVGGraphicsElement>) => {
+    const ctm = e.currentTarget.getScreenCTM();
+    if (e.currentTarget.ownerSVGElement && ctm) {
+        const point = e.currentTarget.ownerSVGElement.createSVGPoint();
+        point.x = e.clientX;
+        point.y = e.clientY;
+        const result = point.matrixTransform(ctm.inverse());
+        return { x: result.x, y: result.y };
     }
+    return { x: e.clientX, y: e.clientY };
+}
 
-    function dragged(d: DataNode) {
-      d.fx = d3.event.x;
-      d.fy = d3.event.y;
-    }
-
-    function dragended(d: DataNode) {
-      if (!d3.event.active) simulation.alphaTarget(0);
-      d.fx = null;
-      d.fy = null;
-    }
-
-    return d3.drag<Element, DataNode>()
-        .on("start", dragstarted)
-        .on("drag", dragged)
-        .on("end", dragended);
+const useDrag = (simulation: d3.Simulation<DataNode, undefined>) => {
+    const [dragging, setDragging] = React.useState(false);
+    return (d: DataNode): Partial<React.SVGProps<SVGCircleElement>> => ({
+        onMouseDownCapture: e => {
+            simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+            setDragging(true);
+        },
+        onMouseMoveCapture: e => {
+            if (dragging) {
+                const coords = getSvgCoords(e);
+                d.fx = coords.x;
+                d.fy = coords.y;
+            }
+        },
+        onMouseUpCapture: e => {
+            setDragging(false);
+            d.fx = null;
+            d.fy = null;
+            simulation.alphaTarget(0);
+        }
+    })
   }
 
 export const Name = "force-directed-graph"
@@ -58,7 +71,7 @@ export const Component: React.FC = () => {
         return () => { simulation.stop() };
     }, [simulation, forceUpdate])
 
-    const dragCallback = drag(simulation);
+    const dragCallback = useDrag(simulation);
 
     return (
         <svg style={{ width: "100%", height: "100%", font: "10px sans-serif" }} viewBox={`${0},${0},${width},${height}`}>
@@ -72,9 +85,7 @@ export const Component: React.FC = () => {
             </g>
             <g stroke="#fff" strokeWidth={1.5}>
                 {nodes.map(d =>
-                    <circle key={d.id} r={5} fill={color(d)} cx={d.x} cy={d.y}
-                        // Rather than using ref here, React events should be used instead. This would avoid using d3.select.
-                        ref={elem => elem && d3.select(elem as Element).datum(d).call(dragCallback)}>
+                    <circle key={d.id} r={5} fill={color(d)} cx={d.x} cy={d.y} {...dragCallback(d)}>
                         <title>{d.id}</title>
                     </circle>
                 )}
