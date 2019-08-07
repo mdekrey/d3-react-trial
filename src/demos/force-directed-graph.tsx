@@ -4,6 +4,7 @@ import * as d3Scale from 'd3-scale';
 import * as d3Force from 'd3-force';
 import * as d3ScaleChromatic from 'd3-scale-chromatic';
 import { Data, DataNode, isLinked, PreLink, PostLink } from './force-directed-graph-types';
+import { useDocumentEventListener } from './hooks/useDocumentEventListener';
 
 const scale = d3Scale.scaleOrdinal(d3ScaleChromatic.schemeCategory10);
 const color = (d: { group: string }) => scale(d.group);
@@ -31,43 +32,35 @@ function getSvgCoords(e: React.MouseEvent<SVGGraphicsElement> | MouseEvent, elem
 }
 
 const useDrag = (simulation: d3Force.Simulation<DataNode, undefined>) => {
-    const [dragging, setDragging] = React.useState<{ data: DataNode, elem: SVGGraphicsElement } | null>(null);
-
-    React.useEffect(() => {
-        function mouseMove(e: MouseEvent) {
-            if (dragging) {
-                const coords = getSvgCoords(e, dragging.elem);
-                dragging.data.fx = coords.x;
-                dragging.data.fy = coords.y;
-                e.stopPropagation();
-            }
+    const dragging = React.useRef<{ data: DataNode, elem: SVGGraphicsElement }>();
+    useDocumentEventListener("mousemove", React.useCallback(function (e: MouseEvent) {
+        if (dragging.current) {
+            const coords = getSvgCoords(e, dragging.current.elem);
+            dragging.current.data.fx = coords.x;
+            dragging.current.data.fy = coords.y;
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
         }
-        function mouseUp(e: MouseEvent) {
-            if (dragging) {
-                simulation.alphaTarget(0);
-                dragging.data.fx = null;
-                dragging.data.fy = null;
-                e.stopPropagation();
-                e.preventDefault();
-                setDragging(null);
-                document.removeEventListener("mousemove", mouseMove, true);
-            }
+    }, [dragging]), true);
+    useDocumentEventListener("mouseup", React.useCallback(function (e: MouseEvent) {
+        if (dragging.current) {
+            simulation.alphaTarget(0);
+            dragging.current.data.fx = null;
+            dragging.current.data.fy = null;
+            e.stopPropagation();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            dragging.current = undefined;
         }
-        document.addEventListener("mousemove", mouseMove, true)
-        document.addEventListener("mouseup", mouseUp, true)
-
-        return () => {
-            document.removeEventListener("mousemove", mouseMove, true);
-            document.removeEventListener("mouseup", mouseUp, true);
-        }
-    }, [dragging, setDragging, simulation])
+    }, [dragging, simulation]), true);
 
     return (d: DataNode): Partial<React.SVGProps<SVGCircleElement>> => ({
         onMouseDownCapture: e => {
             simulation.alphaTarget(0.3).restart();
             d.fx = d.x;
             d.fy = d.y;
-            setDragging({ data: d, elem: e.currentTarget });
+            dragging.current = { data: d, elem: e.currentTarget };
         }
     })
   }
