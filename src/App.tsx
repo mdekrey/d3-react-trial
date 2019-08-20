@@ -4,7 +4,7 @@ import { Switch, Route } from 'react-router';
 import { Link } from 'react-router-dom';
 import { demos } from './demos';
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   return (
     <Switch>
       {demos.map((demo, index) => <Route exact path={`/demo/${index}`} component={demo.Component} key={demo.OriginalUrl} />)}
@@ -23,5 +23,3 @@ const App: React.FC = () => {
     </Switch>
   );
 }
-
-export default App;
